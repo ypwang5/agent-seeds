@@ -52,6 +52,20 @@ def plan_followups(gh_old: str, v2_old: str, as_search: str, alive_date: str, as
         except ValueError:
             return {}
 
+    def apps_from(text):
+        """Dify 云版的文档提取器会改动文本（实测开头多了换行，字符串里可能插进真换行），标准 JSON 解析会失败：
+        先用宽松模式（允许字符串里有控制字符），再不行就用正则直接抠 trackId / trackName / userRatingCount。"""
+        import re
+        try:
+            return (json.loads(text or "{}", strict=False) or {}).get("results", [])
+        except (ValueError, AttributeError):
+            pass
+        ids = re.findall(r'"trackId"\s*:\s*(\d+)', text or "")
+        names = re.findall(r'"trackName"\s*:\s*"((?:[^"\\]|\\.)*)"', text or "")
+        counts = re.findall(r'"userRatingCount"\s*:\s*(\d+)', text or "")
+        return [{"trackId": int(i), "trackName": names[k] if k < len(names) else "",
+                 "userRatingCount": int(counts[k]) if k < len(counts) else 0} for k, i in enumerate(dict.fromkeys(ids))]
+
     if not (as_search or "").strip() and as_text:
         as_search = as_text[0]
     urls, meta = [], []
@@ -66,7 +80,7 @@ def plan_followups(gh_old: str, v2_old: str, as_search: str, alive_date: str, as
         urls.append(f"https://www.v2ex.com/api/replies/show.json?topic_id={h.get('_id')}")
         meta.append({"kind": "v2_old", "title": src.get("title") or "", "url": f"https://www.v2ex.com/t/{h.get('_id')}",
                      "created": (src.get("created") or "")[:10], "heat": int(src.get("replies") or 0)})
-    for a in load(as_search).get("results", [])[:3]:
+    for a in apps_from(as_search)[:3]:
         if a.get("trackId"):
             urls.append(f"https://itunes.apple.com/cn/rss/customerreviews/page=1/id={a['trackId']}/sortby=mostrecent/json")
             meta.append({"kind": "app", "title": a.get("trackName") or "",

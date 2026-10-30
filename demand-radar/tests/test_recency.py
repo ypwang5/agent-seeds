@@ -47,6 +47,15 @@ def test_plan_reads_appstore_from_extracted_file_when_body_empty():
     assert C.plan_followups("{}", "{}", "", W["alive_date"], [])["urls"] == []
 
 
+def test_plan_survives_cloud_extractor_mangling():
+    # Dify 云版文档提取器的输出：开头多换行（实测），字符串里插进真换行（推测）；还要能抠出 3 个 App
+    raw = read("as_search.json")
+    mangled = "\n\n\n" + raw.replace('"description":"', '"description":"\n\n')
+    for text in (mangled, mangled.replace('"resultCount"', 'resultCount', 1)):   # 第二个连宽松 JSON 都解析不了，走正则
+        meta = json.loads(C.plan_followups("{}", "{}", "", W["alive_date"], [text])["meta"])
+        assert [m["kind"] for m in meta] == ["app"] * 3 and all(m["title"] for m in meta)
+
+
 def test_merge_keeps_recent_and_live_old_posts():
     out = merged()
     posts = json.loads(out["posts"])
