@@ -7,6 +7,7 @@ set -euo pipefail
 APP=/opt/job-agent
 HOST=job.wyphub.com
 PORT=8091
+MCP_PORT=8092
 TUNNEL=bill-ocr
 CF=/etc/cloudflared/config.yml
 MANIFEST=/root/job-agent-installed.txt
@@ -42,6 +43,15 @@ systemctl daemon-reload
 systemctl enable job-agent >/dev/null
 systemctl restart job-agent
 
+# 5b. 内核 MCP Server（给 Dify 云版需求雷达用）：.env 里有 MCP_TOKEN 才装，没有就跳过
+if grep -q '^MCP_TOKEN=.\{16,\}' "$APP/.env"; then
+  install -m 644 "$APP/deploy/job-mcp.service" /etc/systemd/system/job-mcp.service
+  note mcp-service
+  systemctl daemon-reload
+  systemctl enable job-mcp >/dev/null
+  systemctl restart job-mcp
+fi
+
 # 6. Tunnel 路由：在兜底的 404 规则前插入本站；DNS 记录（CNAME）由 cloudflared 创建
 if ! grep -q "hostname: $HOST" "$CF"; then
   cp "$CF" "$CF.bak-job-agent"
@@ -50,12 +60,27 @@ if ! grep -q "hostname: $HOST" "$CF"; then
   systemctl restart cloudflared
   note ingress
 fi
+# 6b. /mcp 开头的请求转给 MCP Server：路径规则必须排在本站的通用规则前面（cloudflared 按顺序匹配）
+if grep -qxF mcp-service "$MANIFEST" && ! grep -q "127.0.0.1:$MCP_PORT" "$CF"; then
+  cp "$CF" "$CF.bak-job-mcp"
+  sed -i "0,\#^  - hostname: $HOST#s##  - hostname: $HOST\n    path: ^/mcp\n    service: http://127.0.0.1:$MCP_PORT\n  - hostname: $HOST#" "$CF"
+  cloudflared tunnel ingress validate
+  systemctl restart cloudflared
+  note mcp-ingress
+fi
 if ! grep -qxF dns "$MANIFEST"; then
   cloudflared tunnel route dns "$TUNNEL" "$HOST" && note dns
 fi
 
 for i in $(seq 1 30); do
-  curl -sf "127.0.0.1:$PORT/api/health" && echo && echo "已启动：https://$HOST" && exit 0
+  if curl -sf "127.0.0.1:$PORT/api/health"; then
+    echo && echo "已启动：https://$HOST"
+    if grep -qxF mcp-service "$MANIFEST"; then   # 不带 Token 应该被拒（401），说明服务在、鉴权生效
+      sleep 3
+      echo "MCP 不带 Token 访问：$(curl -s -o /dev/null -w '%{http_code}' -X POST "127.0.0.1:$MCP_PORT/mcp")（期望 401）"
+    fi
+    exit 0
+  fi
   sleep 2
 done
 echo "启动失败，看日志：journalctl -u job-agent -n 50"; exit 1

@@ -1,0 +1,21 @@
+[Unit]
+Description=求职 Agent 内核 MCP Server（给 Dify 云版需求雷达做竞品调研）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=jobagent
+WorkingDirectory=/opt/job-agent
+Environment=PYTHONIOENCODING=utf-8
+# 只听本机端口，公网入口是 Cloudflare Tunnel 的 job.wyphub.com/mcp；必须带 Bearer Token（.env 的 MCP_TOKEN）
+ExecStart=/opt/job-agent/.venv/bin/job-mcp --host 127.0.0.1 --port 8092 --public-host job.wyphub.com
+Restart=on-failure
+RestartSec=10
+Nice=5
+CPUWeight=50
+MemoryMax=600M
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

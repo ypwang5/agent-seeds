@@ -74,11 +74,13 @@ def main():
     ap = argparse.ArgumentParser(prog="job-mcp", description="求职 Agent 内核 MCP Server")
     ap.add_argument("--host", default="127.0.0.1", help="Dify 在 Docker 里要访问时用 0.0.0.0")
     ap.add_argument("--port", type=int, default=8002)
+    ap.add_argument("--public-host", action="append", default=[],
+                    help="经反向代理对外时的域名（如 job.wyphub.com），可写多次；防 DNS 重绑定只放行这些 Host")
     args = ap.parse_args()
     token = os.environ.get("MCP_TOKEN")
     if not token:
         raise SystemExit("请先在 .env 里设置 MCP_TOKEN（任意一串足够长的随机字符）")
-    hosts = [f"{h}:{args.port}" for h in ("127.0.0.1", "localhost", "host.docker.internal")]
+    hosts = [f"{h}:{args.port}" for h in ("127.0.0.1", "localhost", "host.docker.internal")] + args.public_host
     uvicorn.run(build_app(token, hosts), host=args.host, port=args.port)
 
 
