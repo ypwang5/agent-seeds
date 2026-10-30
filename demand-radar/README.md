@@ -7,6 +7,8 @@
 
 ---
 
+**在线试用**：https://udify.app/workflow/yHnTLKMPzJuCRc2h （Dify 官方云；竞品调研经 MCP 调 `job.wyphub.com/mcp` 上的内核，带令牌鉴权。一次约 3 分钟）
+
 ## Dify 里的样子
 
 | 工作流画布（26 个节点，含迭代节点并行抓回复/评论） | 一次运行的追踪（约 170 秒） |
@@ -117,7 +119,11 @@ flowchart LR
 
 ---
 
-## 五、部署到本机 Dify
+## 五、部署
+
+**Dify 官方云**（线上演示用的就是这种）：「工具 → MCP」添加 `https://job.wyphub.com/mcp`（服务器标识 `job-kernel`，请求头 `Authorization: Bearer <令牌>`，超时 180 秒）→ 导入 `dist/demand_radar.yml` → 发布 → 打开 Web 应用。内核 MCP 的线上部署见 `../job-agent/deploy/`（`job-mcp.service`，Tunnel 里 `/mcp` 路径规则）。
+
+**本机 Dify**：
 
 1. 启动内核 MCP Server（在 `../job-agent`；`.env` 里要有 `MCP_TOKEN`）：
    ```powershell

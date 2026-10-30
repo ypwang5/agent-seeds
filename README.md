@@ -5,7 +5,7 @@
 | 项目 | 做什么 | 技术 | 在线 |
 |---|---|---|---|
 | [`job-agent/`](job-agent/README.md) | 求职：每天筛岗位（匹配分 + 风险标签 + 投递建议），拿到面试后深度准备（差距分析、公司调研、防编造的简历改写、面试题） | LangGraph + LangChain + FastAPI + React | https://job.wyphub.com |
-| [`demand-radar/`](demand-radar/README.md) | 找需求：领域 → 抓 HN / GitHub / V2EX 近期讨论 + App Store 差评 → 痛点排序（原话核对）→ 竞品调研 | Dify 工作流（[画布截图](demand-radar/README.md#dify-里的样子)） | 本机 Dify；DSL 可直接导入 |
+| [`demand-radar/`](demand-radar/README.md) | 找需求：领域 → 抓 HN / GitHub / V2EX 近期讨论 + App Store 差评 → 痛点排序（原话核对）→ 竞品调研 | Dify 工作流（[画布截图](demand-radar/README.md#dify-里的样子)） | https://udify.app/workflow/yHnTLKMPzJuCRc2h （Dify 官方云，一次约 3 分钟） |
 | `step0-react/` | 第 0 步：手写约 50 行的最小 ReAct 循环，理解 Agent 本质 | OpenAI SDK（调 DeepSeek），不用框架 | 学习用 |
 
 ## 一个内核，两个应用
