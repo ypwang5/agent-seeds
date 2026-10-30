@@ -1,0 +1,25 @@
+[Unit]
+Description=求职 Agent（FastAPI + LangGraph）
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=jobagent
+WorkingDirectory=/opt/job-agent
+Environment=PYTHONIOENCODING=utf-8
+# 只听本机端口，公网入口是 Cloudflare Tunnel。
+# 单进程：免费额度记在内存里，多进程会各记各的。
+# --no-proxy-headers：不让 uvicorn 用 X-Forwarded-For 改写来源 IP，真实 IP 由代码从 CF-Connecting-IP 取
+ExecStart=/opt/job-agent/.venv/bin/uvicorn job_agent.api:app --host 127.0.0.1 --port 8091 --no-proxy-headers
+Restart=on-failure
+RestartSec=10
+# 同机还有 OCR 演示、VPN 等服务：本服务主要在等模型返回，CPU 让一让；内存超限只杀本服务
+Nice=5
+CPUWeight=50
+MemoryMax=1200M
+PrivateTmp=true
+# 新建的存档、缓存只有本服务能读（默认 644，同机其他用户可读）
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

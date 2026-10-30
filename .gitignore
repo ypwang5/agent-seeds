@@ -1,0 +1,23 @@
+# 白名单：这个目录里还有简历、其他项目等私人文件，默认全部忽略，只公开下面几项
+/*
+!/.gitignore
+!/README.md
+!/job-agent/
+!/demand-radar/
+!/step0-react/
+
+# 通用
+__pycache__/
+*.py[oc]
+.pytest_cache/
+.venv/
+.env
+.claude/
+.vscode/
+
+# 求职 Agent 的真实评测数据只留本地（JD 原文是第三方内容，标注含对真实公司的风险判断），只公开合成示例
+/job-agent/evals/jds/*
+!/job-agent/evals/jds/00_示例_合成.txt
+/job-agent/evals/labels/*
+!/job-agent/evals/labels/00_示例_合成.json
+/job-agent/evals/risk_labels.json

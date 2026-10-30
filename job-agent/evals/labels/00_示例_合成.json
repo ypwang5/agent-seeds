@@ -1,0 +1,16 @@
+{
+  "education": "本科",
+  "years_required": 3,
+  "hard_requirements": [
+    "计算机相关专业",
+    "3 年以上 Python 或 Java 开发经验",
+    "熟悉 LangChain、LangGraph 等大模型应用框架",
+    "有实际 Agent 项目经验",
+    "熟悉 RAG 技术链路：文档切分、向量检索、重排序",
+    "熟悉 FastAPI 或 Spring Boot",
+    "熟悉 MySQL、Redis",
+    "能接受驻场开发"
+  ],
+  "tech_keywords": ["Python", "Java", "LangChain", "LangGraph", "RAG", "FastAPI", "Spring Boot", "MySQL", "Redis", "Dify", "Coze"],
+  "employment_signals": ["驻场", "大小周"]
+}

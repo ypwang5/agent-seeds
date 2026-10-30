@@ -1,0 +1,2004 @@
+app:
+  name: 需求雷达
+  description: 领域 → 抓 HN / GitHub / V2EX 讨论 + App Store 差评（近期为主）→ 需求判定（原话核对）→ 痛点聚类打分 → 竞品调研（内核 MCP）
+  icon: 📡
+  icon_background: '#E0F2FE'
+  mode: workflow
+  use_icon_as_answer_icon: false
+kind: app
+version: 0.7.0
+dependencies: []
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      enabled: false
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+  graph:
+    nodes:
+    - id: start
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: start
+        title: 开始
+        variables:
+        - variable: topic
+          label: 领域（如：记账、简历工具、家庭网络）
+          type: text-input
+          required: true
+          max_length: 50
+          options: []
+        - variable: months
+          label: 时间范围（近几个月，默认 12）
+          type: number
+          required: false
+          options: []
+      position:
+        x: 40
+        y: 200
+      positionAbsolute:
+        x: 40
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: llm_q
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: llm
+        title: 扩展检索词
+        model:
+          provider: langgenius/deepseek/deepseek
+          name: deepseek-v4-flash
+          mode: chat
+          completion_params:
+            temperature: 0.2
+        prompt_template:
+        - role: system
+          text: |-
+            你帮独立开发者在技术社区里找真实需求。把用户给的领域，改写成两组搜索关键词：
+            - en：2～3 个英文单词，用于 Hacker News 和 GitHub Issues（GitHub 要求每个词都出现在标题里，词越多搜到越少），偏"问题/工具"说法（如 expense tracker）；
+            - zh：2～4 个中文词，用于 V2EX 和 App Store（如 记账 软件）。
+            只输出 JSON：{"en": "...", "zh": "..."}
+        - role: user
+          text: 领域：{{#start.topic#}}
+        context:
+          enabled: false
+          variable_selector: []
+        vision:
+          enabled: false
+        memory: null
+        structured_output_enabled: false
+        reasoning_format: separated
+        retry_config: &id001
+          enabled: true
+          max_retries: 2
+          retry_interval: 2000
+          exponential_backoff:
+            enabled: false
+            multiplier: 2
+            max_interval: 10000
+      position:
+        x: 340
+        y: 200
+      positionAbsolute:
+        x: 340
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: q
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: code
+        title: 解析检索词
+        code_language: python3
+        code: |
+          def main(llm_text: str, topic: str) -> dict:
+              """解析"扩展检索词"节点的 JSON；解析失败就退回用原始领域词，不让整个流程断掉。"""
+              import json
+              import re
+              m = re.search(r"\{.*\}", llm_text or "", re.S)
+              try:
+                  data = json.loads(m.group()) if m else {}
+              except ValueError:
+                  data = {}
+              en = str(data.get("en") or topic).strip()[:80]
+              zh = str(data.get("zh") or topic).strip()[:40]
+              return {"en": en, "zh": zh}
+        variables:
+        - variable: llm_text
+          value_selector:
+          - llm_q
+          - text
+        - variable: topic
+          value_selector:
+          - start
+          - topic
+        outputs:
+          en:
+            type: string
+            children: null
+          zh:
+            type: string
+            children: null
+      position:
+        x: 640
+        y: 200
+      positionAbsolute:
+        x: 640
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: win
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: code
+        title: 时间窗
+        code_language: python3
+        code: |
+          def main(months) -> dict:
+              """时间窗：since = 新帖的起点（默认近 12 个月）；alive = 老帖"还活着"的门槛（近 6 个月内有回复）。
+              各来源接口要的格式不同（HN、V2EX 要时间戳，GitHub 要日期），这里一次算好。"""
+              import time
+              try:
+                  months = min(max(int(months or 12), 1), 60)
+              except (TypeError, ValueError):
+                  months = 12
+              now = int(time.time())
+              since_ts = now - months * 30 * 86400
+              alive_ts = now - min(months, 6) * 30 * 86400
+              day = lambda ts: time.strftime("%Y-%m-%d", time.gmtime(ts))
+              return {"months": months, "since_ts": since_ts, "since_date": day(since_ts),
+                      "alive_ts": alive_ts, "alive_date": day(alive_ts)}
+        variables:
+        - variable: months
+          value_selector:
+          - start
+          - months
+        outputs:
+          months:
+            type: number
+            children: null
+          since_ts:
+            type: number
+            children: null
+          since_date:
+            type: string
+            children: null
+          alive_ts:
+            type: number
+            children: null
+          alive_date:
+            type: string
+            children: null
+      position:
+        x: 640
+        y: 360
+      positionAbsolute:
+        x: 640
+        y: 360
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: hn
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: http-request
+        title: HN 新帖
+        method: get
+        url: https://hn.algolia.com/api/v1/search
+        authorization:
+          type: no-auth
+          config: null
+        headers: ''
+        params: |-
+          query:{{#q.en#}}
+          tags:(story,comment)
+          hitsPerPage:24
+          numericFilters:created_at_i>{{#win.since_ts#}}
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 10
+          read: 30
+          write: 30
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        ssl_verify: true
+        retry_config: *id001
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: '{}'
+        - key: status_code
+          type: number
+          value: 0
+      position:
+        x: 940
+        y: -280
+      positionAbsolute:
+        x: 940
+        y: -280
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: gh
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: http-request
+        title: GitHub 新 issue
+        method: get
+        url: https://api.github.com/search/issues
+        authorization:
+          type: no-auth
+          config: null
+        headers: |-
+          User-Agent:demand-radar
+          Accept:application/vnd.github+json
+        params: |-
+          q:{{#q.en#}} in:title is:issue created:>{{#win.since_date#}}
+          per_page:24
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 10
+          read: 30
+          write: 30
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        ssl_verify: true
+        retry_config: *id001
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: '{}'
+        - key: status_code
+          type: number
+          value: 0
+      position:
+        x: 940
+        y: -120
+      positionAbsolute:
+        x: 940
+        y: -120
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: v2
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: http-request
+        title: V2EX 新帖（sov2ex 搜索）
+        method: get
+        url: https://www.sov2ex.com/api/search
+        authorization:
+          type: no-auth
+          config: null
+        headers: ''
+        params: |-
+          q:{{#q.zh#}}
+          size:24
+          sort:sumup
+          gte:{{#win.since_ts#}}
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 10
+          read: 30
+          write: 30
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        ssl_verify: true
+        retry_config: *id001
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: '{}'
+        - key: status_code
+          type: number
+          value: 0
+      position:
+        x: 940
+        y: 40
+      positionAbsolute:
+        x: 940
+        y: 40
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: gh_old
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: http-request
+        title: GitHub 老热 issue
+        method: get
+        url: https://api.github.com/search/issues
+        authorization:
+          type: no-auth
+          config: null
+        headers: |-
+          User-Agent:demand-radar
+          Accept:application/vnd.github+json
+        params: |-
+          q:{{#q.en#}} in:title is:issue created:<{{#win.since_date#}} updated:>{{#win.alive_date#}} comments:>=5
+          sort:comments
+          per_page:6
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 10
+          read: 30
+          write: 30
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        ssl_verify: true
+        retry_config: *id001
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: '{}'
+        - key: status_code
+          type: number
+          value: 0
+      position:
+        x: 940
+        y: 200
+      positionAbsolute:
+        x: 940
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: v2_old
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: http-request
+        title: V2EX 老热帖
+        method: get
+        url: https://www.sov2ex.com/api/search
+        authorization:
+          type: no-auth
+          config: null
+        headers: ''
+        params: |-
+          q:{{#q.zh#}}
+          size:8
+          sort:sumup
+          lte:{{#win.since_ts#}}
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 10
+          read: 30
+          write: 30
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        ssl_verify: true
+        retry_config: *id001
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: '{}'
+        - key: status_code
+          type: number
+          value: 0
+      position:
+        x: 940
+        y: 360
+      positionAbsolute:
+        x: 940
+        y: 360
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: as_search
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: http-request
+        title: App Store 搜 App
+        method: get
+        url: https://itunes.apple.com/search
+        authorization:
+          type: no-auth
+          config: null
+        headers: ''
+        params: |-
+          term:{{#q.zh#}}
+          country:cn
+          entity:software
+          limit:3
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 10
+          read: 30
+          write: 30
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        ssl_verify: true
+        retry_config: *id001
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: '{}'
+        - key: status_code
+          type: number
+          value: 0
+      position:
+        x: 940
+        y: 520
+      positionAbsolute:
+        x: 940
+        y: 520
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: as_text
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: document-extractor
+        title: 读取 App 搜索结果
+        variable_selector:
+        - as_search
+        - files
+        is_array_file: true
+        error_strategy: default-value
+        default_value:
+        - key: text
+          type: array[string]
+          value: []
+      position:
+        x: 1240
+        y: 560
+      positionAbsolute:
+        x: 1240
+        y: 560
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: plan
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: code
+        title: 第二轮抓取清单
+        code_language: python3
+        code: |
+          def main(gh_old: str, v2_old: str, as_search: str, alive_date: str, as_text: list = None) -> dict:
+              """第二轮抓取的地址清单（交给迭代节点逐个 GET）：
+
+              - GitHub / V2EX 的老热帖：抓它们的回复，看近期还有没有人在聊（HN 不查：实测 1 年前的高回复帖近半年都没有新评论）；
+              - App Store：按领域词搜到的前 3 个 App，抓它们最新的用户评论。
+              meta 与 urls 一一对应，记下每个地址是什么、属于哪个帖子 / App。
+
+              as_text：苹果搜索接口的响应头带 content-disposition: attachment，Dify 把它存成文件、body 为空（实测），
+              所以先经"文档提取器"读回文本，从这里传进来；body 有内容时优先用 body。"""
+              import json
+
+              def load(body):
+                  try:
+                      return json.loads(body or "{}")
+                  except ValueError:
+                      return {}
+
+              if not (as_search or "").strip() and as_text:
+                  as_search = as_text[0]
+              urls, meta = [], []
+              for it in load(gh_old).get("items", [])[:6]:
+                  if it.get("comments_url"):
+                      # since 只返回这个时间之后有更新的评论；一条都没有就说明这个老帖已经没人聊了
+                      urls.append(f"{it['comments_url']}?since={alive_date}T00:00:00Z&per_page=100")
+                      meta.append({"kind": "gh_old", "title": it.get("title") or "", "url": it.get("html_url") or "",
+                                   "created": (it.get("created_at") or "")[:10], "heat": int(it.get("comments") or 0)})
+              for h in load(v2_old).get("hits", [])[:8]:
+                  src = h.get("_source") or {}
+                  urls.append(f"https://www.v2ex.com/api/replies/show.json?topic_id={h.get('_id')}")
+                  meta.append({"kind": "v2_old", "title": src.get("title") or "", "url": f"https://www.v2ex.com/t/{h.get('_id')}",
+                               "created": (src.get("created") or "")[:10], "heat": int(src.get("replies") or 0)})
+              for a in load(as_search).get("results", [])[:3]:
+                  if a.get("trackId"):
+                      urls.append(f"https://itunes.apple.com/cn/rss/customerreviews/page=1/id={a['trackId']}/sortby=mostrecent/json")
+                      meta.append({"kind": "app", "title": a.get("trackName") or "",
+                                   "url": f"https://apps.apple.com/cn/app/id{a['trackId']}",
+                                   "heat": int(a.get("userRatingCount") or 0), "rating": a.get("averageUserRating")})
+              return {"urls": urls, "meta": json.dumps(meta, ensure_ascii=False)}
+        variables:
+        - variable: gh_old
+          value_selector:
+          - gh_old
+          - body
+        - variable: v2_old
+          value_selector:
+          - v2_old
+          - body
+        - variable: as_search
+          value_selector:
+          - as_search
+          - body
+        - variable: alive_date
+          value_selector:
+          - win
+          - alive_date
+        - variable: as_text
+          value_selector:
+          - as_text
+          - text
+        outputs:
+          urls:
+            type: array[string]
+            children: null
+          meta:
+            type: string
+            children: null
+      position:
+        x: 1240
+        y: 360
+      positionAbsolute:
+        x: 1240
+        y: 360
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: follow
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: iteration
+        title: 抓回复和评论
+        start_node_id: followstart
+        iterator_selector:
+        - plan
+        - urls
+        iterator_input_type: array[string]
+        output_selector:
+        - follow_http
+        - body
+        output_type: array[string]
+        is_parallel: true
+        parallel_nums: 5
+        error_handle_mode: continue-on-error
+        flatten_output: false
+        width: 388
+        height: 178
+      position:
+        x: 1540
+        y: 360
+      positionAbsolute:
+        x: 1540
+        y: 360
+      width: 388
+      height: 178
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      zIndex: 1
+    - id: followstart
+      type: custom-iteration-start
+      data:
+        selected: false
+        desc: ''
+        type: iteration-start
+        title: ''
+        isInIteration: true
+        isInLoop: false
+        iteration_id: follow
+      position:
+        x: 24
+        y: 68
+      positionAbsolute:
+        x: 1564
+        y: 428
+      width: 44
+      height: 48
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      parentId: follow
+      zIndex: 1002
+      draggable: false
+      selectable: false
+    - id: follow_http
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: http-request
+        title: GET
+        method: get
+        url: '{{#follow.item#}}'
+        authorization:
+          type: no-auth
+          config: null
+        headers: User-Agent:demand-radar
+        params: ''
+        body:
+          type: none
+          data: []
+        timeout:
+          connect: 10
+          read: 30
+          write: 30
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        ssl_verify: true
+        retry_config: *id001
+        error_strategy: default-value
+        default_value:
+        - key: body
+          type: string
+          value: '{}'
+        - key: status_code
+          type: number
+          value: 0
+        isInIteration: true
+        isInLoop: false
+        iteration_id: follow
+      position:
+        x: 128
+        y: 68
+      positionAbsolute:
+        x: 1668
+        y: 428
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      parentId: follow
+      zIndex: 1002
+    - id: merge
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: code
+        title: 清洗去重
+        code_language: python3
+        code: |
+          def main(hn_body: str, gh_body: str, v2_body: str, meta: str = "[]", bodies: list = None,
+                          since_ts: int = 0, alive_ts: int = 0) -> dict:
+              """各来源的原始响应 → 统一格式、去重、截断。输出 posts（JSON 字符串）和给模型看的编号列表。
+
+              前三个参数是"新帖"（时间窗内发的）；meta + bodies 是第二轮抓取的结果（老热帖的回复、App Store 评论），
+              老热帖只有近期还有回复才保留，每个来源最多 6 条，给模型看的是标题 + 最新 3 条回复。"""
+              import html
+              import json
+              import re
+              import time
+              from datetime import datetime
+
+              def clean(s, n=500):
+                  s = html.unescape(re.sub(r"<[^>]+>", " ", s or ""))
+                  return re.sub(r"\s+", " ", s).strip()[:n]
+
+              def load(body):
+                  try:
+                      return json.loads(body or "{}")
+                  except (TypeError, ValueError):
+                      return {}
+
+              def ts(s):
+                  try:
+                      return int(datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp())
+                  except ValueError:
+                      return 0
+
+              day = lambda t: time.strftime("%Y-%m-%d", time.localtime(t)) if t else ""
+              posts = []
+              for h in load(hn_body).get("hits", [])[:30]:
+                  text = clean(h.get("comment_text") or h.get("story_text") or "")
+                  title = clean(h.get("title") or h.get("story_title") or "", 200)
+                  posts.append({"source": "HN", "title": title, "text": text or title,
+                                "url": f"https://news.ycombinator.com/item?id={h.get('objectID')}",
+                                "heat": int(h.get("points") or 0), "date": day(h.get("created_at_i"))})
+              for it in load(gh_body).get("items", [])[:30]:
+                  reactions = (it.get("reactions") or {}).get("total_count", 0)
+                  posts.append({"source": "GitHub", "title": clean(it.get("title"), 200),
+                                "text": clean(it.get("body")) or clean(it.get("title"), 200),
+                                "url": it.get("html_url", ""), "heat": int(reactions) + int(it.get("comments") or 0),
+                                "date": (it.get("created_at") or "")[:10]})
+              for h in load(v2_body).get("hits", [])[:30]:
+                  src = h.get("_source") or {}
+                  posts.append({"source": "V2EX", "title": clean(src.get("title"), 200),
+                                "text": clean(src.get("content")) or clean(src.get("title"), 200),
+                                "url": f"https://www.v2ex.com/t/{h.get('_id')}", "heat": int(src.get("replies") or 0),
+                                "date": (src.get("created") or "")[:10]})
+
+              # 第二轮：老热帖（近期仍有回复才要）、App Store 评论（只要 3 星及以下 = 差评里才有痛点）
+              old_n = {"GitHub": 0, "V2EX": 0}
+              apps = []
+              for m, body in zip(json.loads(meta or "[]"), bodies or []):
+                  data = load(body)
+                  if m["kind"] in ("gh_old", "v2_old"):
+                      src = "GitHub" if m["kind"] == "gh_old" else "V2EX"
+                      replies = data if isinstance(data, list) else []
+                      if src == "GitHub":
+                          recent = [(ts(r.get("created_at")), r.get("body")) for r in replies   # 机器人的自动回复不算有人在聊
+                                    if isinstance(r, dict) and (r.get("user") or {}).get("type") != "Bot"]
+                      else:
+                          recent = [(int(r.get("created") or 0), r.get("content")) for r in replies if isinstance(r, dict)]
+                      recent = sorted(x for x in recent if x[0] >= alive_ts)[-3:]
+                      if not recent or old_n[src] >= 6:
+                          continue
+                      old_n[src] += 1
+                      text = " / ".join(clean(b, 160) for _, b in recent)
+                      posts.append({"source": src, "title": clean(m["title"], 200), "text": text, "url": m["url"],
+                                    "heat": m["heat"], "date": m["created"], "old": True, "last_reply": day(recent[-1][0])})
+                  elif m["kind"] == "app":
+                      heat = f"{m['heat'] / 10000:.0f} 万" if m["heat"] >= 10000 else str(m["heat"])
+                      apps.append(f"{m['title'].split('-')[0].strip()}（{heat}人评分）")   # 去掉"-3秒钟快速记账手机助手"这类副标题
+                      entries = (data.get("feed") or {}).get("entry") if isinstance(data, dict) else None
+                      entries = [entries] if isinstance(entries, dict) else entries or []
+                      # 差评条条都是抱怨（实测 26 条全判为需求，占了一半以上），所以每个 App 只留 3 条写得最具体的（按字数）
+                      cands = []
+                      for e in entries:
+                          star = int(((e.get("im:rating") or {}).get("label")) or 0)
+                          when = ts((e.get("updated") or {}).get("label"))
+                          text = clean((e.get("content") or {}).get("label"))
+                          if 1 <= star <= 3 and when >= since_ts and len(text) >= 15:
+                              cands.append((len(text), star, when, text, e))
+                      for _, star, when, text, e in sorted(cands, key=lambda c: -c[0])[:3]:
+                          posts.append({"source": "AppStore", "title": clean(f"{m['title']}（{star} 星）{(e.get('title') or {}).get('label', '')}", 200),
+                                        "text": text, "url": m["url"], "heat": 0,
+                                        "date": day(when), "key": f"{m['url']}#{(e.get('id') or {}).get('label', when)}"})
+
+              seen, out = set(), []
+              for p in posts:
+                  key = p.get("key") or p["url"] or p["title"]   # App Store 评论没有单独链接，按评论 ID 去重
+                  if not p["text"] or key in seen:
+                      continue
+                  seen.add(key)
+                  p["id"] = f"P{len(out) + 1}"
+                  out.append(p)
+
+              def head(p):
+                  when = f"{p['date'][:4]} 年老帖，最近回复 {p['last_reply']}" if p.get("old") else p.get("date", "")
+                  return f"[{p['id']}]（{p['source']}，{when}）{p['title']}\n{p['text']}"
+
+              # 按来源分几份列表，下游几个模型节点并行判断（实测一次判 90 条要 114 秒）
+              names = ("HN", "GitHub", "V2EX") + (("AppStore",) if bodies is not None else ())
+              listing = {s: "\n\n".join(head(p) for p in out if p["source"] == s) or "（没有帖子）" for s in names + ("AppStore",)}
+              counts = {s: sum(p["source"] == s for p in out) for s in names}
+              return {"posts": json.dumps(out, ensure_ascii=False), "listing_hn": listing["HN"],
+                      "listing_gh": listing["GitHub"], "listing_v2": listing["V2EX"], "listing_as": listing["AppStore"],
+                      "count": len(out), "source_counts": json.dumps(counts, ensure_ascii=False),
+                      "old_count": sum(old_n.values()), "apps": "、".join(apps)}
+        variables:
+        - variable: hn_body
+          value_selector:
+          - hn
+          - body
+        - variable: gh_body
+          value_selector:
+          - gh
+          - body
+        - variable: v2_body
+          value_selector:
+          - v2
+          - body
+        - variable: meta
+          value_selector:
+          - plan
+          - meta
+        - variable: bodies
+          value_selector:
+          - follow
+          - output
+        - variable: since_ts
+          value_selector:
+          - win
+          - since_ts
+        - variable: alive_ts
+          value_selector:
+          - win
+          - alive_ts
+        outputs:
+          posts:
+            type: string
+            children: null
+          listing_hn:
+            type: string
+            children: null
+          listing_gh:
+            type: string
+            children: null
+          listing_v2:
+            type: string
+            children: null
+          listing_as:
+            type: string
+            children: null
+          count:
+            type: number
+            children: null
+          source_counts:
+            type: string
+            children: null
+          old_count:
+            type: number
+            children: null
+          apps:
+            type: string
+            children: null
+      position:
+        x: 2040
+        y: 200
+      positionAbsolute:
+        x: 2040
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: cls_hn
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: llm
+        title: 判断需求（HN）
+        model:
+          provider: langgenius/deepseek/deepseek
+          name: deepseek-v4-flash
+          mode: chat
+          completion_params:
+            temperature: 0
+        prompt_template:
+        - role: system
+          text: |-
+            你是需求分析师。下面是社区帖子或 App Store 用户评论，每条以 [P编号] 开头（括号里是来源和日期；"老帖"只给了最近几条回复）。逐条判断它是否表达了与"{{#start.topic#}}"相关的真实需求。
+
+            算需求：抱怨某个问题、吐槽现有工具、说"想要/希望有/找不到"某种工具、描述自己的土办法、问有没有某种工具。
+            不算需求：广告或自荐（"我做了一个……"且没提到用户痛点）、纯新闻、教程、和领域无关的内容。
+
+            每条输出：
+            - id：编号；
+            - is_need：是否需求；
+            - quote：如果是需求，从这条帖子里**一字不差**地摘一句最能体现痛点的原话（原文语言，不超过 60 字，不要翻译、不要改写、不要拼接）；不是需求就填空字符串；
+            - pain_type：功能缺失 / 体验差 / 价格贵 / 效率低 / 隐私安全 / 其他；
+            - pay_signal：帖子里明确提到付费、价格、订阅、愿意花钱、正在为某个方案付钱时才填 true。
+
+            只输出 JSON 数组，覆盖所有帖子：[{"id": "P1", "is_need": true, "quote": "...", "pain_type": "...", "pay_signal": false}]
+        - role: user
+          text: '{{#merge.listing_hn#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        vision:
+          enabled: false
+        memory: null
+        structured_output_enabled: false
+        reasoning_format: separated
+        retry_config: *id001
+      position:
+        x: 2340
+        y: -40
+      positionAbsolute:
+        x: 2340
+        y: -40
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: cls_gh
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: llm
+        title: 判断需求（GH）
+        model:
+          provider: langgenius/deepseek/deepseek
+          name: deepseek-v4-flash
+          mode: chat
+          completion_params:
+            temperature: 0
+        prompt_template:
+        - role: system
+          text: |-
+            你是需求分析师。下面是社区帖子或 App Store 用户评论，每条以 [P编号] 开头（括号里是来源和日期；"老帖"只给了最近几条回复）。逐条判断它是否表达了与"{{#start.topic#}}"相关的真实需求。
+
+            算需求：抱怨某个问题、吐槽现有工具、说"想要/希望有/找不到"某种工具、描述自己的土办法、问有没有某种工具。
+            不算需求：广告或自荐（"我做了一个……"且没提到用户痛点）、纯新闻、教程、和领域无关的内容。
+
+            每条输出：
+            - id：编号；
+            - is_need：是否需求；
+            - quote：如果是需求，从这条帖子里**一字不差**地摘一句最能体现痛点的原话（原文语言，不超过 60 字，不要翻译、不要改写、不要拼接）；不是需求就填空字符串；
+            - pain_type：功能缺失 / 体验差 / 价格贵 / 效率低 / 隐私安全 / 其他；
+            - pay_signal：帖子里明确提到付费、价格、订阅、愿意花钱、正在为某个方案付钱时才填 true。
+
+            只输出 JSON 数组，覆盖所有帖子：[{"id": "P1", "is_need": true, "quote": "...", "pain_type": "...", "pay_signal": false}]
+        - role: user
+          text: '{{#merge.listing_gh#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        vision:
+          enabled: false
+        memory: null
+        structured_output_enabled: false
+        reasoning_format: separated
+        retry_config: *id001
+      position:
+        x: 2340
+        y: 120
+      positionAbsolute:
+        x: 2340
+        y: 120
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: cls_v2
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: llm
+        title: 判断需求（V2）
+        model:
+          provider: langgenius/deepseek/deepseek
+          name: deepseek-v4-flash
+          mode: chat
+          completion_params:
+            temperature: 0
+        prompt_template:
+        - role: system
+          text: |-
+            你是需求分析师。下面是社区帖子或 App Store 用户评论，每条以 [P编号] 开头（括号里是来源和日期；"老帖"只给了最近几条回复）。逐条判断它是否表达了与"{{#start.topic#}}"相关的真实需求。
+
+            算需求：抱怨某个问题、吐槽现有工具、说"想要/希望有/找不到"某种工具、描述自己的土办法、问有没有某种工具。
+            不算需求：广告或自荐（"我做了一个……"且没提到用户痛点）、纯新闻、教程、和领域无关的内容。
+
+            每条输出：
+            - id：编号；
+            - is_need：是否需求；
+            - quote：如果是需求，从这条帖子里**一字不差**地摘一句最能体现痛点的原话（原文语言，不超过 60 字，不要翻译、不要改写、不要拼接）；不是需求就填空字符串；
+            - pain_type：功能缺失 / 体验差 / 价格贵 / 效率低 / 隐私安全 / 其他；
+            - pay_signal：帖子里明确提到付费、价格、订阅、愿意花钱、正在为某个方案付钱时才填 true。
+
+            只输出 JSON 数组，覆盖所有帖子：[{"id": "P1", "is_need": true, "quote": "...", "pain_type": "...", "pay_signal": false}]
+        - role: user
+          text: '{{#merge.listing_v2#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        vision:
+          enabled: false
+        memory: null
+        structured_output_enabled: false
+        reasoning_format: separated
+        retry_config: *id001
+      position:
+        x: 2340
+        y: 280
+      positionAbsolute:
+        x: 2340
+        y: 280
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: cls_as
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: llm
+        title: 判断需求（AS）
+        model:
+          provider: langgenius/deepseek/deepseek
+          name: deepseek-v4-flash
+          mode: chat
+          completion_params:
+            temperature: 0
+        prompt_template:
+        - role: system
+          text: |-
+            你是需求分析师。下面是社区帖子或 App Store 用户评论，每条以 [P编号] 开头（括号里是来源和日期；"老帖"只给了最近几条回复）。逐条判断它是否表达了与"{{#start.topic#}}"相关的真实需求。
+
+            算需求：抱怨某个问题、吐槽现有工具、说"想要/希望有/找不到"某种工具、描述自己的土办法、问有没有某种工具。
+            不算需求：广告或自荐（"我做了一个……"且没提到用户痛点）、纯新闻、教程、和领域无关的内容。
+
+            每条输出：
+            - id：编号；
+            - is_need：是否需求；
+            - quote：如果是需求，从这条帖子里**一字不差**地摘一句最能体现痛点的原话（原文语言，不超过 60 字，不要翻译、不要改写、不要拼接）；不是需求就填空字符串；
+            - pain_type：功能缺失 / 体验差 / 价格贵 / 效率低 / 隐私安全 / 其他；
+            - pay_signal：帖子里明确提到付费、价格、订阅、愿意花钱、正在为某个方案付钱时才填 true。
+
+            只输出 JSON 数组，覆盖所有帖子：[{"id": "P1", "is_need": true, "quote": "...", "pain_type": "...", "pay_signal": false}]
+        - role: user
+          text: '{{#merge.listing_as#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        vision:
+          enabled: false
+        memory: null
+        structured_output_enabled: false
+        reasoning_format: separated
+        retry_config: *id001
+      position:
+        x: 2340
+        y: 440
+      positionAbsolute:
+        x: 2340
+        y: 440
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: verify
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: code
+        title: 核对原话
+        code_language: python3
+        code: |
+          def main(llm_hn: str, llm_gh: str, llm_v2: str, posts: str, llm_as: str = "") -> dict:
+              """防编造：模型摘的"原话"必须真的出现在那条帖子里（忽略空白和大小写），否则丢弃这条判断。
+              llm_* 是各来源各自的判断结果（并行的几个模型节点）。"""
+              import json
+              import re
+              norm = lambda s: re.sub(r"\s+", "", s or "").lower()
+              by_id = {p["id"]: p for p in json.loads(posts)}
+              items = []
+              for text in (llm_hn, llm_gh, llm_v2, llm_as):
+                  m = re.search(r"\[.*\]", text or "", re.S)
+                  try:
+                      items += json.loads(m.group()) if m else []
+                  except ValueError:
+                      pass
+              needs, dropped = [], []
+              for it in items:
+                  p = by_id.get(str(it.get("id")))
+                  if not p or not it.get("is_need"):
+                      continue
+                  quote = str(it.get("quote") or "")
+                  if len(norm(quote)) < 4 or norm(quote) not in norm(p["title"] + " " + p["text"]):
+                      dropped.append(str(it.get("id")))
+                      continue
+                  needs.append({"id": p["id"], "source": p["source"], "url": p["url"], "heat": p["heat"],
+                                "quote": quote, "pain_type": str(it.get("pain_type") or ""),
+                                "pay_signal": bool(it.get("pay_signal")), "date": p.get("date", ""),
+                                "old": bool(p.get("old"))})
+              listing = "\n".join(f"[{n['id']}]（{n['source']}，{'有' if n['pay_signal'] else '无'}付费信号）{n['quote']}"
+                                  for n in needs)
+              return {"needs": json.dumps(needs, ensure_ascii=False), "listing": listing, "need_count": len(needs),
+                      "dropped": len(dropped), "classified": len(items)}
+        variables:
+        - variable: llm_hn
+          value_selector:
+          - cls_hn
+          - text
+        - variable: llm_gh
+          value_selector:
+          - cls_gh
+          - text
+        - variable: llm_v2
+          value_selector:
+          - cls_v2
+          - text
+        - variable: llm_as
+          value_selector:
+          - cls_as
+          - text
+        - variable: posts
+          value_selector:
+          - merge
+          - posts
+        outputs:
+          needs:
+            type: string
+            children: null
+          listing:
+            type: string
+            children: null
+          need_count:
+            type: number
+            children: null
+          dropped:
+            type: number
+            children: null
+          classified:
+            type: number
+            children: null
+      position:
+        x: 2640
+        y: 200
+      positionAbsolute:
+        x: 2640
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: llm_cluster
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: llm
+        title: 归纳痛点
+        model:
+          provider: langgenius/deepseek/deepseek
+          name: deepseek-v4-pro
+          mode: chat
+          completion_params:
+            temperature: 0
+        prompt_template:
+        - role: system
+          text: |-
+            你是产品经理。下面是"{{#start.topic#}}"领域里已经核对过原话的需求，每条以 [P编号] 开头。
+            把说的是同一件事的需求归成痛点（3～6 个，宁可合并也不要拆太细；只有一条证据的痛点也可以保留）。
+            注意：同一个 App 的差评说的是那个 App 自己的毛病时，要概括成用户的通用需求（如"某 App 广告太多"→"想要无广告的记账工具"）。每个痛点输出：
+            - name：不超过 12 字；
+            - who：谁在痛（人群/场景），只根据原话推断；
+            - description：一两句话说清痛点，只用原话里有的信息；
+            - workaround：原话里提到的现有土办法或替代方案，没有就填空字符串；
+            - pain：痛度 1～5（5 = 严重影响工作/花钱/反复发生，1 = 顺口一提）；
+            - evidence：属于这个痛点的需求编号列表，每个编号只能归到一个痛点。
+
+            只输出 JSON 数组：[{"name": "...", "who": "...", "description": "...", "workaround": "...", "pain": 3, "evidence": ["P1", "P5"]}]
+        - role: user
+          text: '{{#verify.listing#}}'
+        context:
+          enabled: false
+          variable_selector: []
+        vision:
+          enabled: false
+        memory: null
+        structured_output_enabled: false
+        reasoning_format: separated
+        retry_config: *id001
+      position:
+        x: 2940
+        y: 200
+      positionAbsolute:
+        x: 2940
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: fin
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: code
+        title: 校验与打分
+        code_language: python3
+        code: |
+          def main(llm_text: str, needs: str, topic: str) -> dict:
+              """痛点聚类结果的校验与打分。
+
+              - 证据编号必须是上一步核对过的需求，无效编号剔除；没有有效证据的痛点整条丢弃；
+              - 频次 = 有效证据条数（程序数，不信模型报的数）；付费信号 = 证据里有付费信号的条数；
+              - 总分 = 痛度 40% + 频次 30% + 付费意愿 30%（都折算到 0～5），可解释、可复算。
+              """
+              import json
+              import re
+              by_id = {n["id"]: n for n in json.loads(needs)}
+              m = re.search(r"\[.*\]", llm_text or "", re.S)
+              try:
+                  raw = json.loads(m.group()) if m else []
+              except ValueError:
+                  raw = []
+              points = []
+              for r in raw:
+                  ev = []
+                  for i in r.get("evidence", []):
+                      if str(i) in by_id and str(i) not in ev:
+                          ev.append(str(i))
+                  if not ev:
+                      continue
+                  pain = min(max(float(r.get("pain") or 1), 1), 5)
+                  # 同一个 App 的差评最多算 2 次：某个 App 自己的毛病（如广告多）不该靠条数刷成头号痛点
+                  counted, per_app = [], {}
+                  for i in ev:
+                      if by_id[i]["source"] == "AppStore":
+                          per_app[by_id[i]["url"]] = per_app.get(by_id[i]["url"], 0) + 1
+                          if per_app[by_id[i]["url"]] > 2:
+                              continue
+                      counted.append(i)
+                  pay = sum(by_id[i]["pay_signal"] for i in counted)
+                  freq_score = min(len(counted) / 5, 1) * 5
+                  sources = {}
+                  for i in ev:
+                      sources[by_id[i]["source"]] = sources.get(by_id[i]["source"], 0) + 1
+                  pay_score = min(pay / 2, 1) * 5
+                  points.append({"name": str(r.get("name") or "")[:40], "who": str(r.get("who") or "")[:60],
+                                 "description": str(r.get("description") or "")[:200],
+                                 "workaround": str(r.get("workaround") or "")[:120],
+                                 "pain": pain, "frequency": len(counted), "pay_count": pay, "sources": sources,
+                                 "score": round(0.4 * pain + 0.3 * freq_score + 0.3 * pay_score, 2),
+                                 "evidence": [{"id": i, "url": by_id[i]["url"], "source": by_id[i]["source"],
+                                               "quote": by_id[i]["quote"], "date": by_id[i].get("date", ""),
+                                               "old": by_id[i].get("old", False)} for i in ev]})
+              points.sort(key=lambda p: -p["score"])
+              top = points[0] if points else None
+              competitor_topic = f"{topic}：{top['name']}（{top['description']}）" if top else topic
+              return {"points": json.dumps(points, ensure_ascii=False), "point_count": len(points),
+                      "competitor_topic": competitor_topic[:150]}
+        variables:
+        - variable: llm_text
+          value_selector:
+          - llm_cluster
+          - text
+        - variable: needs
+          value_selector:
+          - verify
+          - needs
+        - variable: topic
+          value_selector:
+          - start
+          - topic
+        outputs:
+          points:
+            type: string
+            children: null
+          point_count:
+            type: number
+            children: null
+          competitor_topic:
+            type: string
+            children: null
+      position:
+        x: 3240
+        y: 200
+      positionAbsolute:
+        x: 3240
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: comp
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: tool
+        title: 竞品调研（内核 MCP）
+        provider_id: job-kernel
+        provider_type: mcp
+        provider_name: job-kernel
+        tool_name: research_competitors
+        tool_label: research_competitors
+        tool_configurations: {}
+        tool_parameters:
+          topic:
+            type: mixed
+            value: '{{#fin.competitor_topic#}}'
+        error_strategy: default-value
+        default_value:
+        - key: text
+          type: string
+          value: （竞品调研服务暂不可用）
+      position:
+        x: 3540
+        y: 200
+      positionAbsolute:
+        x: 3540
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: report
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: code
+        title: 生成报告
+        code_language: python3
+        code: |
+          def main(points: str, comp_json: list, comp_text: str, topic: str, source_counts: str, post_count: int,
+                            need_count: int, dropped: int, months: int = 0, old_count: int = 0, apps: str = "") -> dict:
+              """报告由程序渲染：链接、频次、分数都来自前面核对过的数据，模型不碰链接。
+
+              MCP 工具返回的 {"markdown", "report"} 在 Dify 里落在工具节点的 json 输出（列表），text 是空的（实测）；
+              工具失败时默认值落在 text。两个都接，哪个有内容用哪个。
+
+              篇幅控制（一眼能看完）：排行最多 6 个痛点；只展开前 3 名，每个最多 3 条证据（优先不同来源）；
+              竞品只取总结、竞品名、最多 3 个没解决好的地方和 3 条带链接的事实。"""
+              import json
+              pts = json.loads(points or "[]")[:6]
+              counts = json.loads(source_counts or "{}")
+              comp = next((x for x in (comp_json or []) if isinstance(x, dict) and (x.get("markdown") or x.get("report"))), None)
+              if comp is None:
+                  try:
+                      comp = json.loads(comp_text)
+                  except (ValueError, TypeError):
+                      comp = {"markdown": comp_text or ""}
+              comp = comp if isinstance(comp, dict) else {}
+              rep = comp.get("report") if isinstance(comp.get("report"), dict) else {}
+
+              src = lambda s: "App Store" if s == "AppStore" else s
+              line = " · ".join(f"{src(k)} {v}" for k, v in counts.items())
+              window = f"近 {months} 个月的讨论（另含 {old_count} 条更早但近期仍有人回复的老帖）· " if months else ""
+              out = [f"# 📡 需求雷达：{topic}\n",
+                     f"> {window}抓取 {post_count} 条（{line}）→ 需求 {need_count} 条"
+                     f"{f'（{dropped} 条原话对不上已丢弃）' if dropped else ''} → 痛点 {len(pts)} 个\n",
+                     "## 痛点排行\n", "| # | 痛点 | 谁在痛 | 总分 | 提及 | 来源 |", "|:-:|---|---|:-:|:-:|---|"]
+              for i, p in enumerate(pts, 1):
+                  where = " · ".join(f"{src(k)} {v}" for k, v in (p.get("sources") or {}).items())
+                  out.append(f"| {i} | **{p['name']}** | {p['who']} | {p['score']} | {p['frequency']} | {where} |")
+
+              for i, p in enumerate(pts[:3], 1):
+                  out += [f"\n### {i}. {p['name']}　`{p['score']} 分`\n", p["description"]]
+                  if p["workaround"]:
+                      out.append(f"\n- **现在的土办法**：{p['workaround']}")
+                  ev, seen = [], set()
+                  for e in p["evidence"] + p["evidence"]:   # 第一遍每个来源取一条，第二遍补满
+                      if len(ev) < 3 and e not in ev and (e["source"] not in seen or len(seen) >= len({x["source"] for x in p["evidence"]})):
+                          ev.append(e)
+                          seen.add(e["source"])
+                  out.append("")
+                  out += [f"> 「{e['quote']}」（[{src(e['source'])} {e['id']}]({e['url']})"
+                          f"{'，' + e['date'] if e.get('date') else ''}{'，老帖·近期仍有讨论' if e.get('old') else ''}）  "
+                          for e in ev]
+                  if len(p["evidence"]) > len(ev):
+                      out.append(f"> …另有 {len(p['evidence']) - len(ev)} 条")
+
+              top_name = "：" + pts[0]["name"] if pts else ""
+              out.append(f"\n## 🔍 头号痛点的竞品{top_name}\n")
+              if rep.get("summary"):
+                  out.append(f"> {rep['summary']}\n")
+                  if rep.get("competitors"):
+                      out.append(f"- **主要竞品**：{'、'.join(rep['competitors'][:6])}")
+                  cut = lambda s, n: s if len(s) <= n else s[:n] + "…"
+                  if rep.get("gaps"):   # 实测每条空白点能写到 100 多字，截短
+                      out.append("- **还没解决好的**：" + "；".join(cut(g.split("：")[0] if "：" in g[:20] else g, 40)
+                                                               for g in rep["gaps"][:3]))
+                  facts = [f for f in rep.get("facts", []) if f.get("category") in ("定价", "用户评价与抱怨")][:3]
+                  out += [f"- {f['competitor']}：{cut(f['content'], 60)}（[来源]({f['source_url']})）" for f in facts]
+              else:
+                  out.append(comp.get("markdown") or "（竞品调研没有返回结果）")
+              if apps:
+                  out.append(f"- **App Store 同类热门**：{apps}")
+              out += ["\n---", "<sub>总分 = 痛度 40% + 提及 30% + 付费信号 30%；提及、付费信号由程序按证据条数统计，"
+                               "同一个 App 的差评最多算 2 条。每条证据都附原帖链接。</sub>"]
+              return {"report": "\n".join(out)}
+        variables:
+        - variable: points
+          value_selector:
+          - fin
+          - points
+        - variable: comp_json
+          value_selector:
+          - comp
+          - json
+        - variable: comp_text
+          value_selector:
+          - comp
+          - text
+        - variable: topic
+          value_selector:
+          - start
+          - topic
+        - variable: source_counts
+          value_selector:
+          - merge
+          - source_counts
+        - variable: post_count
+          value_selector:
+          - merge
+          - count
+        - variable: need_count
+          value_selector:
+          - verify
+          - need_count
+        - variable: dropped
+          value_selector:
+          - verify
+          - dropped
+        - variable: months
+          value_selector:
+          - win
+          - months
+        - variable: old_count
+          value_selector:
+          - merge
+          - old_count
+        - variable: apps
+          value_selector:
+          - merge
+          - apps
+        outputs:
+          report:
+            type: string
+            children: null
+      position:
+        x: 3840
+        y: 200
+      positionAbsolute:
+        x: 3840
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    - id: end
+      type: custom
+      data:
+        selected: false
+        desc: ''
+        type: end
+        title: 结束
+        outputs:
+        - variable: report
+          value_selector:
+          - report
+          - report
+          value_type: string
+      position:
+        x: 4140
+        y: 200
+      positionAbsolute:
+        x: 4140
+        y: 200
+      width: 244
+      height: 90
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+    edges:
+    - id: start-source-llm_q
+      type: custom
+      source: start
+      target: llm_q
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: start
+        targetType: llm
+        isInIteration: false
+        isInLoop: false
+    - id: llm_q-source-q
+      type: custom
+      source: llm_q
+      target: q
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: llm
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: start-source-win
+      type: custom
+      source: start
+      target: win
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: start
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: q-source-hn
+      type: custom
+      source: q
+      target: hn
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: q-source-gh
+      type: custom
+      source: q
+      target: gh
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: q-source-v2
+      type: custom
+      source: q
+      target: v2
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: q-source-gh_old
+      type: custom
+      source: q
+      target: gh_old
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: q-source-v2_old
+      type: custom
+      source: q
+      target: v2_old
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: q-source-as_search
+      type: custom
+      source: q
+      target: as_search
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: win-source-hn
+      type: custom
+      source: win
+      target: hn
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: win-source-gh
+      type: custom
+      source: win
+      target: gh
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: win-source-v2
+      type: custom
+      source: win
+      target: v2
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: win-source-gh_old
+      type: custom
+      source: win
+      target: gh_old
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: win-source-v2_old
+      type: custom
+      source: win
+      target: v2_old
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: win-source-as_search
+      type: custom
+      source: win
+      target: as_search
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: http-request
+        isInIteration: false
+        isInLoop: false
+    - id: hn-source-merge
+      type: custom
+      source: hn
+      target: merge
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: http-request
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: gh-source-merge
+      type: custom
+      source: gh
+      target: merge
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: http-request
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: v2-source-merge
+      type: custom
+      source: v2
+      target: merge
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: http-request
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: gh_old-source-plan
+      type: custom
+      source: gh_old
+      target: plan
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: http-request
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: v2_old-source-plan
+      type: custom
+      source: v2_old
+      target: plan
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: http-request
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: as_text-source-plan
+      type: custom
+      source: as_text
+      target: plan
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: document-extractor
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: as_search-source-as_text
+      type: custom
+      source: as_search
+      target: as_text
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: http-request
+        targetType: document-extractor
+        isInIteration: false
+        isInLoop: false
+    - id: plan-source-follow
+      type: custom
+      source: plan
+      target: follow
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: iteration
+        isInIteration: false
+        isInLoop: false
+    - id: follow-source-merge
+      type: custom
+      source: follow
+      target: merge
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: iteration
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: merge-source-cls_hn
+      type: custom
+      source: merge
+      target: cls_hn
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: llm
+        isInIteration: false
+        isInLoop: false
+    - id: merge-source-cls_gh
+      type: custom
+      source: merge
+      target: cls_gh
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: llm
+        isInIteration: false
+        isInLoop: false
+    - id: merge-source-cls_v2
+      type: custom
+      source: merge
+      target: cls_v2
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: llm
+        isInIteration: false
+        isInLoop: false
+    - id: merge-source-cls_as
+      type: custom
+      source: merge
+      target: cls_as
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: llm
+        isInIteration: false
+        isInLoop: false
+    - id: cls_hn-source-verify
+      type: custom
+      source: cls_hn
+      target: verify
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: llm
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: cls_gh-source-verify
+      type: custom
+      source: cls_gh
+      target: verify
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: llm
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: cls_v2-source-verify
+      type: custom
+      source: cls_v2
+      target: verify
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: llm
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: cls_as-source-verify
+      type: custom
+      source: cls_as
+      target: verify
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: llm
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: verify-source-llm_cluster
+      type: custom
+      source: verify
+      target: llm_cluster
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: llm
+        isInIteration: false
+        isInLoop: false
+    - id: llm_cluster-source-fin
+      type: custom
+      source: llm_cluster
+      target: fin
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: llm
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: fin-source-comp
+      type: custom
+      source: fin
+      target: comp
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: tool
+        isInIteration: false
+        isInLoop: false
+    - id: comp-source-report
+      type: custom
+      source: comp
+      target: report
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: tool
+        targetType: code
+        isInIteration: false
+        isInLoop: false
+    - id: report-source-end
+      type: custom
+      source: report
+      target: end
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 0
+      data:
+        sourceType: code
+        targetType: end
+        isInIteration: false
+        isInLoop: false
+    - id: followstart-source-follow_http
+      type: custom
+      source: followstart
+      target: follow_http
+      sourceHandle: source
+      targetHandle: target
+      zIndex: 1002
+      data:
+        sourceType: iteration-start
+        targetType: http-request
+        isInIteration: true
+        isInLoop: false
+        iteration_id: follow
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.5

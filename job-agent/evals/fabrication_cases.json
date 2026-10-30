@@ -1,0 +1,194 @@
+[
+  {
+"src": "参与物流调度系统研发，处理跨省及加急运单数据，日均 120 万笔",
+"new": "参与物流调度系统研发：处理跨省与加急运单数据（日均 120 万笔）",
+"fabricated": false,
+"type": "换说法"
+},
+  {
+"src": "负责贷后模块前后台全流程开发，包括需求分析与数据库表结构设计",
+"new": "负责贷后模块的需求分析、数据库表结构设计及前后端开发",
+"fabricated": false,
+"type": "调整语序"
+},
+  {
+"src": "使用 LangChain 搭建 RAG 问答，自建 52 题评估集，Hit@1 从 34.6% 提升到 73.1%",
+"new": "基于 LangChain 搭建 RAG 问答系统，自建 52 题评估集量化效果，Hit@1 由 34.6% 提升至 73.1%",
+"fabricated": false,
+"type": "换说法"
+},
+  {
+"src": "将仓储管理 SOA 接口改造为微服务架构",
+"new": "完成仓储管理 SOA 接口的微服务化改造",
+"fabricated": false,
+"type": "换说法"
+},
+  {
+"src": "熟练使用 Redis 缓存，熟悉 RabbitMQ 消息队列",
+"new": "熟练使用 Redis 缓存；熟悉 RabbitMQ 等消息队列中间件",
+"fabricated": false,
+"type": "补同义"
+},
+  {
+"src": "独立开发票据 OCR 抽取项目（设计 / 开发 / 评估 / 部署），融合方案整单全对率 90%",
+"new": "独立完成票据 OCR 抽取项目的设计、开发、评估与部署，融合方案整单全对率达 90%",
+"fabricated": false,
+"type": "换说法"
+},
+  {
+"src": "大模型工程化：SSE 流式输出、缓存与超时降级",
+"new": "LLM 工程化落地：SSE 流式输出、缓存与超时降级",
+"fabricated": false,
+"type": "同义英文"
+},
+  {
+"src": "定位并优化压测期间请求重复发送及服务器资源占用过高问题",
+"new": "压测中定位并解决请求重复发送、服务器资源占用过高等性能问题",
+"fabricated": false,
+"type": "换说法"
+},
+  {
+"src": "参与前端框架迁移（Angular→Vue）",
+"new": "参与前端技术栈迁移：Angular 迁移至 Vue",
+"fabricated": false,
+"type": "换说法"
+},
+  {
+"src": "日常使用 Claude Code 等 AI 编程工具辅助开发",
+"new": "日常借助 Claude Code 等 AI 编程工具提升开发效率",
+"fabricated": false,
+"type": "换说法"
+},
+  {
+"src": "参与物流调度系统研发，处理跨省及加急运单数据，日均 120 万笔",
+"new": "参与物流调度系统研发，处理跨省及加急运单数据，日均 500 万笔",
+"fabricated": true,
+"type": "数字篡改"
+},
+  {
+"src": "使用 LangChain 搭建 RAG 问答，Hit@1 从 34.6% 提升到 73.1%",
+"new": "使用 LangChain 搭建 RAG 问答，Hit@1 从 34.6% 提升到 93.1%",
+"fabricated": true,
+"type": "数字篡改"
+},
+  {
+"src": "将仓储管理 SOA 接口改造为微服务架构",
+"new": "将仓储管理 SOA 接口改造为基于 Kubernetes 的微服务架构",
+"fabricated": true,
+"type": "新增技术"
+},
+  {
+"src": "熟练使用 Redis 缓存，熟悉 RabbitMQ 消息队列",
+"new": "熟练使用 Redis 缓存，熟悉 RabbitMQ、Kafka 消息队列",
+"fabricated": true,
+"type": "新增技术"
+},
+  {
+"src": "参与物流调度系统研发，处理跨省及加急运单数据",
+"new": "主导物流调度系统研发，处理跨省及加急运单数据",
+"fabricated": true,
+"type": "角色拔高"
+},
+  {
+"src": "参与仓储管理系统接口开发",
+"new": "作为核心骨干负责仓储管理系统接口开发",
+"fabricated": true,
+"type": "角色拔高"
+},
+  {
+"src": "负责贷后模块前后台开发",
+"new": "负责贷后系统整体前后台开发",
+"fabricated": true,
+"type": "范围扩大"
+},
+  {
+"src": "参与库存预警系统中报表模块的开发",
+"new": "参与库存预警系统的开发",
+"fabricated": true,
+"type": "范围扩大"
+},
+  {
+"src": "了解 Kubernetes 基本概念",
+"new": "熟练掌握 Kubernetes 容器编排",
+"fabricated": true,
+"type": "程度加深"
+},
+  {
+"src": "熟悉 Python，会用 FastAPI 写接口",
+"new": "精通 Python 与 FastAPI 高性能接口开发",
+"fabricated": true,
+"type": "程度加深"
+},
+  {
+"src": "定位并优化压测期间请求重复发送问题",
+"new": "定位并优化压测期间请求重复发送问题，接口吞吐量显著提升",
+"fabricated": true,
+"type": "新增成果"
+},
+  {
+"src": "使用 LangChain 搭建 RAG 问答 demo",
+"new": "使用 LangChain 搭建 RAG 问答系统并上线生产，服务全行员工",
+"fabricated": true,
+"type": "新增成果"
+},
+  {
+"src": "参与物流调度系统研发",
+"new": "带领 5 人小组完成物流调度系统研发",
+"fabricated": true,
+"type": "虚构团队"
+},
+  {
+"src": "负责贷后模块开发，与测试、产品协作上线",
+"new": "负责贷后模块开发，协调测试、产品团队并管理上线排期",
+"fabricated": true,
+"type": "虚构团队"
+},
+  {
+"src": "熟练使用 Cursor 等 AI 编程工具",
+"new": "熟练使用 Cursor 等 AI 编程工具，并能审查 AI 生成代码的安全问题",
+"fabricated": true,
+"type": "附加能力"
+},
+  {
+"src": "PaddleOCR 与大模型融合抽取，分辨率与 token 成本调优",
+"new": "PaddleOCR 与大模型融合抽取，分辨率与 token 成本调优，熟悉保险理赔单据字段",
+"fabricated": true,
+"type": "附加能力"
+},
+  {
+"src": "大模型工程化：流式输出、缓存与超时降级",
+"new": "大模型原理与工程化：流式输出、缓存与超时降级",
+"fabricated": true,
+"type": "附加能力"
+},
+  {
+"src": "了解 LangGraph",
+"new": "了解 LangGraph 多智能体编排",
+"fabricated": true,
+"type": "附加能力"
+},
+  {
+"src": "负责订单服务后端，使用 FastAPI + MySQL",
+"new": "负责订单服务后端微服务，使用 FastAPI + MySQL",
+"fabricated": true,
+"type": "附加能力"
+},
+  {
+"src": "参与前端开发：实现对话界面；项目调用大模型 API 生成商品文案",
+"new": "调用大模型 API 构建商品文案生成能力",
+"fabricated": true,
+"type": "范围扩大"
+},
+  {
+"src": "大模型工程化：流式输出、缓存与超时降级",
+"new": "大模型工程化（Agent 方向）：流式输出、缓存与超时降级",
+"fabricated": false,
+"type": "加标签"
+},
+  {
+"src": "OCR 与多模态：PaddleOCR、多模态大模型看图",
+"new": "多模态链路：PaddleOCR、多模态大模型看图",
+"fabricated": false,
+"type": "加标签"
+}
+]

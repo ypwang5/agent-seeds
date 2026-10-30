@@ -1,0 +1,43 @@
+[project]
+name = "job-agent"
+version = "0.1.0"
+description = "求职 Agent：岗位筛选 + 深度准备（LangGraph + LangChain）"
+readme = "README.md"
+authors = [
+    { name = "ypwang5", email = "user96313254@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.0",
+    "langchain>=1.4",
+    "langchain-anthropic>=1.7",
+    "langchain-deepseek>=1.1",
+    "langchain-openai>=1.7",
+    "langfuse>=5.0.4",
+    "langgraph-checkpoint-sqlite>=3.1.2",
+    "mcp>=1.20",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "pypdf>=5",
+    "python-docx>=1.2.0",
+    "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+job-prep = "job_agent.cli:main"
+job-mcp = "job_agent.mcp_server:main"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: 真实调用模型 API（需要 Key，会花一点钱）"]
